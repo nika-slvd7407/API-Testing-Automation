@@ -1,0 +1,7 @@
+{
+  "id": 0,
+  "name": "default name",
+  "email": "default@mail.com",
+  "gender": "male",
+  "status": "active"
+}
