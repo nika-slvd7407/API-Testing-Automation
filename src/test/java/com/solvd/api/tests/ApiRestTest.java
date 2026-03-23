@@ -107,7 +107,7 @@ public class ApiRestTest extends BaseTest {
         UserRequest request = TemplateService.getUserRequestTemplate();
 
         int statusCode = putWithoutId(request);
-        Assert.assertEquals(statusCode, 405);
+        Assert.assertEquals(statusCode, 404);
     }
 
     @Test
