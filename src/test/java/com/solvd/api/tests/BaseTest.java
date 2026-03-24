@@ -1,6 +1,7 @@
 package com.solvd.api.tests;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.solvd.domain.ErrorResponse;
 import com.solvd.domain.UserRequest;
 import com.solvd.domain.UserResponse;
 import com.solvd.testutil.RestService;
@@ -18,6 +19,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 
 public class BaseTest {
@@ -31,7 +34,7 @@ public class BaseTest {
         HttpPost request = createRequest(new HttpPost(BASE_URL));
         String json = mapper.writeValueAsString(requestBody);
         request.setEntity(new StringEntity(json));
-
+         log.info(request.toString());
         CloseableHttpResponse response = client.execute(request);
         log.info("response: {}", response.toString());
         UserResponse userResponse = parseResponse(response, UserResponse.class);
@@ -139,6 +142,21 @@ public class BaseTest {
         return client.execute(request);
     }
 
+    protected ErrorResponse postForErrors(UserRequest requestBody) throws Exception {
+        CloseableHttpClient client = HttpClients.createDefault();
+        HttpPost request = createRequest(new HttpPost(BASE_URL));
+        request.setEntity(new StringEntity(mapper.writeValueAsString(requestBody)));
 
+        CloseableHttpResponse response = client.execute(request);
+
+        ErrorResponse result = new ErrorResponse();
+        result.setStatusCode(response.getStatusLine().getStatusCode());
+        result.setErrors(mapper.readValue(
+                response.getEntity().getContent(), mapper.getTypeFactory().constructCollectionType(List.class, Map.class)));
+
+        response.close();
+        client.close();
+        return result;
+    }
 
 }

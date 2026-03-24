@@ -1,5 +1,6 @@
 package com.solvd.api.tests;
 
+import com.solvd.domain.ErrorResponse;
 import com.solvd.domain.UserRequest;
 import com.solvd.domain.UserResponse;
 import com.solvd.service.TemplateService;
@@ -11,32 +12,32 @@ import org.testng.annotations.Test;
 public class ApiRestTest extends BaseTest {
 
     @Test
-    public void tc01_create_user_success() throws Exception {
+    public void createUserWhenValidRequestReturnsCreatedUser() throws Exception {
         UserResponse response = createUser();
-        UserResponse responceTemplate = TemplateService.getUserResponseTemplate();
-
-        Assert.assertEquals(response.getName(), responceTemplate.getName());
-        Assert.assertEquals(response.getGender(), responceTemplate.getGender());
-        Assert.assertEquals(response.getStatus(), responceTemplate.getStatus());
-        Assert.assertTrue(response.getEmail().contains("testuser"));
-    }
-
-    @Test
-    public void tc02_get_user_success() throws Exception {
-        UserResponse createdUser = createUser();
-        int id =createdUser.getId();
-        UserResponse response =  get(createdUser.getId());
         UserResponse responseTemplate = TemplateService.getUserResponseTemplate();
 
-        Assert.assertEquals(response.getId(), id);
-        Assert.assertEquals(response.getName(), responseTemplate.getName());
-        Assert.assertEquals(response.getGender(), responseTemplate.getGender());
-        Assert.assertEquals(response.getStatus(), responseTemplate.getStatus());
-        Assert.assertTrue(response.getEmail().contains("testuser"));
+        Assert.assertEquals(response.getName(), responseTemplate.getName(), "name mismatch");
+        Assert.assertEquals(response.getGender(), responseTemplate.getGender(), "gender mismatch");
+        Assert.assertEquals(response.getStatus(), responseTemplate.getStatus(), "status mismatch");
+        Assert.assertTrue(response.getEmail().contains("testuser"), "email does not contain testuser");
     }
 
     @Test
-    public void tc03_update_user_put() throws Exception {
+    public void getUserWhenUserExistsReturnsUserDetails() throws Exception {
+        UserResponse createdUser = createUser();
+        int id = createdUser.getId();
+        UserResponse response = get(createdUser.getId());
+        UserResponse responseTemplate = TemplateService.getUserResponseTemplate();
+
+        Assert.assertEquals(response.getId(), id, "id mismatch");
+        Assert.assertEquals(response.getName(), responseTemplate.getName(), "name mismatch");
+        Assert.assertEquals(response.getGender(), responseTemplate.getGender(), "gender mismatch");
+        Assert.assertEquals(response.getStatus(), responseTemplate.getStatus(), "status mismatch");
+        Assert.assertTrue(response.getEmail().contains("testuser"), "email does not contain testuser");
+    }
+
+    @Test
+    public void updateUserWithPutWhenValidDataUpdatesUser() throws Exception {
         UserResponse created = createUser();
         int id = created.getId();
 
@@ -47,13 +48,13 @@ public class ApiRestTest extends BaseTest {
 
         UserResponse response = put(id, updateRequest);
 
-        Assert.assertEquals(response.getId(), id);
-        Assert.assertEquals(response.getName(), updateRequest.getName());
-        Assert.assertEquals(response.getEmail(), updateRequest.getEmail());
+        Assert.assertEquals(response.getId(), id, "id mismatch");
+        Assert.assertEquals(response.getName(), updateRequest.getName(), "name not updated");
+        Assert.assertEquals(response.getEmail(), updateRequest.getEmail(), "email not updated");
     }
 
     @Test
-    public void tc04_update_user_patch() throws Exception {
+    public void updateUserWithPatchWhenPartialUpdateUpdatesSpecifiedFields() throws Exception {
         UserResponse created = createUser();
         int id = created.getId();
 
@@ -62,71 +63,75 @@ public class ApiRestTest extends BaseTest {
 
         UserResponse response = patch(id, patchRequest);
 
-        Assert.assertEquals(response.getId(), id);
-        Assert.assertEquals(response.getStatus(), patchRequest.getStatus());
+        Assert.assertEquals(response.getId(), id, "id mismatch");
+        Assert.assertEquals(response.getStatus(), patchRequest.getStatus(), "status not updated");
     }
 
     @Test
-    public void tc05_delete_user() throws Exception {
+    public void deleteUserWhenUserExistsReturnsNoContentAndUserNotFoundAfter() throws Exception {
         UserResponse created = createUser();
         int id = created.getId();
 
         int statusCode = delete(id);
-        Assert.assertEquals(statusCode, 204);
+        Assert.assertEquals(statusCode, 204, "expected 204 status");
 
         UserResponse response = get(id);
-        Assert.assertEquals(response.getStatusCode(), 404);
+        Assert.assertEquals(response.getStatusCode(), 404, "user still exists after delete");
     }
 
     @Test
-    public void tc06_get_users_list() throws Exception {
+    public void getUsersListWhenPageRequestedReturnsNonEmptyList() throws Exception {
         UserResponse[] users = getUsersList(1, 10);
-        Assert.assertTrue(users.length > 0);
+        Assert.assertTrue(users.length > 0, "users list is empty");
     }
 
     @Test
-    public void tc07_create_user_invalid_data() throws Exception {
+    public void createUserWhenInvalidEmailReturnsValidationError() throws Exception {
         UserRequest invalid = TemplateService.getUserRequestTemplate();
-        invalid.setEmail("invalid-email");
+        invalid.setEmail("");
 
-        UserResponse response = post(invalid);
-        Assert.assertEquals(response.getStatusCode(), 422);
+        ErrorResponse response = postForErrors(invalid);
+
+        Assert.assertEquals(response.getStatusCode(), 422, "expected 422 status");
+        Assert.assertFalse(response.getErrors().isEmpty(), "error list is empty");
+
+        boolean emailErrorFound = response.getErrors().stream()
+                .anyMatch(error -> "email".equals(error.get("field")) &&
+                        error.get("message").toString().toLowerCase().contains("can't be blank"));
+
+        Assert.assertTrue(emailErrorFound, "email validation error not found");
     }
 
     @Test
-    public void tc08_unauthorized_request() throws Exception {
+    public void createUserWhenUnauthorizedReturnsUnauthorizedError() throws Exception {
         UserRequest request = TemplateService.getUserRequestTemplate();
         request.setEmail(EmailService.getRandomEmail());
 
         int statusCode = postWithoutToken(request);
-        Assert.assertEquals(statusCode, 401);
+        Assert.assertEquals(statusCode, 401, "expected unauthorized error");
     }
 
     @Test
-    public void tc09_method_not_allowed() throws Exception {
+    public void updateUserWithoutIdWhenPutRequestReturnsNotFound() throws Exception {
         UserRequest request = TemplateService.getUserRequestTemplate();
 
         int statusCode = putWithoutId(request);
-        Assert.assertEquals(statusCode, 404);
+        Assert.assertEquals(statusCode, 404, "expected not found error");
     }
 
     @Test
-    public void tc10_rate_limit_headers() throws Exception {
+    public void getUsersWhenRequestMadeReturnsRateLimitHeaders() throws Exception {
         CloseableHttpResponse response = getRawUsers();
-        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
-        Assert.assertNotNull(response.getFirstHeader("X-RateLimit-Limit"));
-        Assert.assertNotNull(response.getFirstHeader("X-RateLimit-Remaining"));
+        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200, "unexpected status code");
+        Assert.assertNotNull(response.getFirstHeader("X-RateLimit-Limit"), "missing rate limit header");
+        Assert.assertNotNull(response.getFirstHeader("X-RateLimit-Remaining"), "missing remaining header");
         response.close();
     }
-
-
 
     private UserResponse createUser() throws Exception {
         UserRequest request = TemplateService.getUserRequestTemplate();
         request.setEmail("testuser" + Math.random() + "@mail.com");
         log.info(request.toString());
-        return  post(request);
+        return post(request);
     }
-
-
 }
