@@ -1,0 +1,3 @@
+{
+  "query": "mutation { updateUser(input: { id: %d, name: \"%s\", email: \"%s\" }) { user { id name email gender status } } }"
+}

@@ -1,0 +1,3 @@
+{
+  "query": "mutation { deleteUser(input: { id: %d }) { user { id } } }"
+}
