@@ -11,4 +11,8 @@ public class RestService {
     public static String getToken() {
         return config.getProperty("TOKEN");
     }
+
+    public static String getGraphUrl() {
+        return config.getProperty("GRAPH_URL");
+    }
 }
